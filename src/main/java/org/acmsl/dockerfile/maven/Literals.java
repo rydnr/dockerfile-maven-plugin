@@ -82,4 +82,24 @@ public class Literals
      * String literal: "Cannot read my own pom".
      */
     public static final String CANNOT_READ_MY_OWN_POM = "Cannot read my own pom";
+
+    /**
+     * String literal: "source".
+     */
+    public static final String SOURCE_L = "source";
+
+    /**
+     * String literal: "C".
+     */
+    public static final String C_U = "C";
+
+    /**
+     * String literal: "org/acmsl/dockerfile".
+     */
+    public static final String ORG_ACMSL_DOCKERFILE = "org/acmsl/dockerfile";
+
+    /**
+     * String literal: "org/acmsl/dockerfile/Dockerfile.stg".
+     */
+    public static final String ORG_ACMSL_DOCKERFILE_DOCKERFILE_STG = "org/acmsl/dockerfile/Dockerfile.stg";
 }

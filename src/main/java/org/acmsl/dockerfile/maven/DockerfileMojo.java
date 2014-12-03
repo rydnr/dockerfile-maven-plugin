@@ -78,7 +78,7 @@ import org.checkthread.annotations.ThreadSafe;
  */
 @SuppressWarnings("unused")
 @ThreadSafe
-@Mojo( name = Literals.DOCKERFILE_L, defaultPhase = LifecyclePhase.GENERATE_SOURCES, threadSafe = true, executionStrategy = "once-per-session")
+@Mojo(name = Literals.DOCKERFILE_L, defaultPhase = LifecyclePhase.GENERATE_SOURCES, threadSafe = true, executionStrategy = "once-per-session")
 public class DockerfileMojo
     extends AbstractMojo
 {
@@ -180,7 +180,7 @@ public class DockerfileMojo
         if (   (properties != null)
             && (properties.containsKey(Literals.VERSION_L)))
         {
-            result = properties.getProperty(Literals.DOCKERFILE_VERSION);
+            result = properties.getProperty(Literals.VERSION_L);
         }
         else
         {
