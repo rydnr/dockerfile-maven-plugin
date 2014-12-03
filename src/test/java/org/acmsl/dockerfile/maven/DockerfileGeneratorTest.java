@@ -42,7 +42,6 @@ import java.util.HashMap;
  * Importing NotNull annotations.
  */
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /*
  * Importing checkthread.org annotations.

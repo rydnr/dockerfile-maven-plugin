@@ -55,16 +55,10 @@ import org.jetbrains.annotations.Nullable;
 /*
  * Importing some JDK classes.
  */
-import java.lang.reflect.Method;
-import java.util.Arrays;
-import java.util.Locale;
-import java.util.Map;
 import java.util.Properties;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.List;
-import java.util.Set;
 
 /*
  * Importing checkthread.org annotations.

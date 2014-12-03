@@ -183,7 +183,6 @@ public class DockerfileGenerator
 
     /**
      * Generates a new Dockerfile using given information.
-     * @param input the input.
      * @return the Dockerfile content.
      */
     @NotNull
@@ -230,10 +229,7 @@ public class DockerfileGenerator
         @NotNull final Charset charset)
     {
         @NotNull final STGroupFile result = new STGroupFile(path, charset.displayName());
-//        STGroup.verbose = true;
 
-//        result.importTemplates(new STGroupDir("org/acmsl/queryj/dao", charset.displayName()));
-//        result.importTemplates(new STGroupDir("org/acmsl/queryj/vo", charset.displayName()));
         for (@Nullable final String lookupPath : lookupPaths)
         {
             if (lookupPath != null)
@@ -241,13 +237,9 @@ public class DockerfileGenerator
                 result.importTemplates(new STGroupDir(lookupPath, charset.displayName()));
             }
         }
+
         result.isDefined(Literals.SOURCE_L);
         result.setListener(errorListener);
-
-//        STGroup.registerGroupLoader(loader);
-//        STroup.registerDefaultLexer(AngleBracketTemplateLexer.class);
-
-//        result = STGroup.loadGroup(path);
 
         return result;
     }
