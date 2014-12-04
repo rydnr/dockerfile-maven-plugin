@@ -39,12 +39,14 @@ import org.acmsl.commons.logging.UniqueLogFactory;
 /*
  * Importing some Maven classes.
  */
+import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Parameter;
+import org.apache.maven.project.MavenProject;
 
 /*
  * Importing NotNull annotations.
@@ -59,6 +61,7 @@ import java.util.Properties;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Map;
 
 /*
  * Importing checkthread.org annotations.
@@ -87,6 +90,13 @@ public class DockerfileMojo
      */
     @Parameter (name = Literals.OUTPUT_DIR_CC, property = Literals.OUTPUT_DIR_CC, required = false, defaultValue = "${project.build.dir}/META-INF/")
     private File m__OutputDir;
+
+    /**
+     * The current build session instance. This is used for toolchain manager API calls.
+     * @readonly
+     */
+    @Parameter (defaultValue = "${session}", required = true, readonly = true)
+    private MavenSession session;
 
     /**
      * Specifies the output directory.
@@ -158,7 +168,11 @@ public class DockerfileMojo
     protected void execute(@NotNull final Log log)
         throws MojoExecutionException
     {
-        execute(log, retrieveVersion(retrievePomProperties(log)));
+        execute(
+            log,
+            retrieveOwnVersion(retrievePomProperties(log)),
+            retrieveTargetName(retrieveTargetProject()),
+            retrieveTargetVersion(retrieveTargetProject()));
     }
 
     /**
@@ -167,7 +181,7 @@ public class DockerfileMojo
      * @return the version entry.
      */
     @NotNull
-    protected String retrieveVersion(@Nullable final Properties properties)
+    protected String retrieveOwnVersion(@Nullable final Properties properties)
     {
         @NotNull final String result;
 
@@ -185,13 +199,51 @@ public class DockerfileMojo
     }
 
     /**
+     * Retrieves the target project.
+     * @return such version.
+     */
+    @NotNull
+    protected MavenProject retrieveTargetProject()
+    {
+        return this.session.getCurrentProject();
+    }
+
+    /**
+     * Retrieves the target version.
+     * @param project the target project.
+     * @return such version.
+     */
+    @NotNull
+    protected String retrieveTargetVersion(@NotNull final MavenProject project)
+    {
+        return project.getVersion();
+    }
+
+    /**
+     * Retrieves the target name.
+     * @param project the target project.
+     * @return such name.
+     */
+    @NotNull
+    protected String retrieveTargetName(@NotNull final MavenProject project)
+    {
+        return project.getName();
+    }
+
+    /**
      * Executes Dockerfile Maven Plugin.
      * @param log the Maven log.
-     * @param version the Dockerfile Maven Plugin version.
+     * @param ownVersion the Dockerfile Maven Plugin version.
+     * @param targetName the target name.
+     * @param targetVersion the target version.
      * @throws MojoExecutionException if the process fails.
      */
-    protected void execute(@NotNull final Log log, final String version)
-        throws MojoExecutionException
+    protected void execute(
+        @NotNull final Log log,
+        @NotNull final String ownVersion,
+        @NotNull final String targetName,
+        @NotNull final String targetVersion)
+      throws MojoExecutionException
     {
         boolean running = false;
 
@@ -208,7 +260,7 @@ public class DockerfileMojo
                 log.warn("Cannot create output folder: " + outputDir);
             }
 
-            log.info("Running Dockerfile Maven Plugin " + version);
+            log.info("Running Dockerfile Maven Plugin " + ownVersion + " on " + targetName + " " + targetVersion);
 
             running = true;
         }
@@ -219,7 +271,7 @@ public class DockerfileMojo
 
         if (!running)
         {
-            log.error("NOT running Dockerfile Maven Plugin " + version);
+            log.error("NOT running Dockerfile Maven Plugin " + ownVersion);
             throw new MojoExecutionException("Dockerfile Maven Plugin could not start");
         }
     }
