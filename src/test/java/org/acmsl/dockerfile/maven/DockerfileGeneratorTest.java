@@ -32,8 +32,16 @@
 package org.acmsl.dockerfile.maven;
 
 /*
+ * Importing ACM-SL Java Commons classes.
+ */
+import org.acmsl.commons.utils.io.FileUtils;
+
+/*
  * Importing JDK classes.
  */
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.Charset;
 import java.util.Date;
 import java.util.Map;
 import java.util.HashMap;
@@ -52,8 +60,10 @@ import org.checkthread.annotations.ThreadSafe;
  * Importing JUnit classes.
  */
 import org.junit.Assert;
+import org.junit.Rule;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.junit.rules.TemporaryFolder;
 import org.junit.Test;
 
 /**
@@ -65,11 +75,26 @@ import org.junit.Test;
 @RunWith(JUnit4.class)
 public class DockerfileGeneratorTest
 {
+    @Rule
+    public TemporaryFolder tempFolder = new TemporaryFolder();
+
+    /**
+     * A sample Dockerfile.stg
+     */
+    @NotNull
+    public static final String DOCKERFILE_STG_CONTENTS =
+          "group Dockerfile;\n\n"
+        + "source(C) ::= <<\n"
+        + "<C.key>\n"
+        + ">>\n";
+
     /**
      * Checks whether the generator can find the template.
+     * @throws IOException a the temporary file cannot be created.
      */
     @Test
     public void generator_finds_the_template()
+        throws IOException
     {
         @NotNull final Map<String, String> input = new HashMap<String, String>();
 
@@ -77,7 +102,13 @@ public class DockerfileGeneratorTest
 
         input.put("key", testValue);
 
-        @NotNull final DockerfileGenerator generator = new DockerfileGenerator(input);
+        @NotNull final File template = tempFolder.newFile("Dockerfile.stg");
+
+        @NotNull final FileUtils fileUtils = FileUtils.getInstance();
+
+        fileUtils.writeFileIfPossible(template, DOCKERFILE_STG_CONTENTS, Charset.defaultCharset());
+
+        @NotNull final DockerfileGenerator generator = new DockerfileGenerator(input, template);
 
         Assert.assertNotNull(generator);
 

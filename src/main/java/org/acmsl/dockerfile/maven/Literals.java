@@ -41,7 +41,7 @@ import org.checkthread.annotations.ThreadSafe;
 
 /**
  * Literals for Dockerfile Maven Plugin.
- * @author <a href="mailto:queryj@acm-sl.org">Jose San Leandro</a>
+ * @author <a href="mailto:chous@acm-sl.org">Jose San Leandro</a>
  * @since 1.0
  * Created: 2014/12/01
  */
@@ -76,7 +76,7 @@ public class Literals
     /**
      * String literal: "dockerfile.outputdir".
      */
-    public static final String DOCKERFILE_OUTPUT_DIR = DOCKERFILE_L + ".outputdir";
+     public static final String DOCKERFILE_OUTPUT_DIR = DOCKERFILE_L + ".outputdir";
 
     /**
      * String literal: "Cannot read my own pom".
@@ -94,6 +94,11 @@ public class Literals
     public static final String C_U = "C";
 
     /**
+     * String literal: "T".
+     */
+    public static final String T_U = "T";
+
+    /**
      * String literal: "org/acmsl/dockerfile".
      */
     public static final String ORG_ACMSL_DOCKERFILE = "org/acmsl/dockerfile";
@@ -102,4 +107,24 @@ public class Literals
      * String literal: "org/acmsl/dockerfile/Dockerfile.stg".
      */
     public static final String ORG_ACMSL_DOCKERFILE_DOCKERFILE_STG = "org/acmsl/dockerfile/Dockerfile.stg";
+
+    /**
+     * String literal: "template".
+     */
+    public static final String TEMPLATE_L = "template";
+
+    /**
+     * String literal: "dockerfile.template".
+     */
+    public static final String DOCKERFILE_TEMPLATE = "dockerfile.template";
+
+    /**
+     * String literal: "encoding".
+     */
+    public static final String ENCODING_L = "encoding";
+
+    /**
+     * String literal: "dockerfile.encoding".
+     */
+    public static final String DOCKERFILE_ENCODING = "dockerfile.encoding";
 }

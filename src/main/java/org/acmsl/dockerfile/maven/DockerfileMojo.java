@@ -35,6 +35,7 @@ package org.acmsl.dockerfile.maven;
  * Importing some ACM-SL Java Commons classes.
  */
 import org.acmsl.commons.logging.UniqueLogFactory;
+import org.acmsl.commons.utils.io.FileUtils;
 
 /*
  * Importing some Maven classes.
@@ -57,11 +58,13 @@ import org.jetbrains.annotations.Nullable;
 /*
  * Importing some JDK classes.
  */
-import java.util.Properties;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.Charset;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Properties;
 
 /*
  * Importing checkthread.org annotations.
@@ -88,8 +91,20 @@ public class DockerfileMojo
     /**
      * The output directory.
      */
-    @Parameter (name = Literals.OUTPUT_DIR_CC, property = Literals.OUTPUT_DIR_CC, required = false, defaultValue = "${project.build.dir}/META-INF/")
+    @Parameter (name = Literals.OUTPUT_DIR_CC, property = Literals.OUTPUT_DIR_CC, required = false, defaultValue = "${project.build.outputDirectory}/META-INF/")
     private File m__OutputDir;
+
+    /**
+     * The output directory.
+     */
+    @Parameter (name = Literals.TEMPLATE_L, property = Literals.TEMPLATE_L, required = true)
+    private File m__Template;
+
+    /**
+     * The file encoding.
+     */
+    @Parameter (name = Literals.ENCODING_L, property = Literals.ENCODING_L, required = false, defaultValue = "${project.build.sourceEncoding}")
+    private String m__strEncoding;
 
     /**
      * The current build session instance. This is used for toolchain manager API calls.
@@ -150,6 +165,102 @@ public class DockerfileMojo
     }
 
     /**
+     * Specifies the template.
+     * @param template such template.
+     */
+    protected final void immutableSetTemplate(@NotNull final File template)
+    {
+        m__Template = template;
+    }
+
+    /**
+     * Specifies the template.
+     * @param template such template.
+     */
+    public void setTemplate(@NotNull final File template)
+    {
+        immutableSetTemplate(template);
+    }
+
+    /**
+     * Returns the template.
+     * @return such template.
+     */
+    @NotNull
+    protected final File immutableGetTemplate()
+    {
+        return m__Template;
+    }
+
+    /**
+     * Returns the template.
+     * @return such template.
+     */
+    @NotNull
+    public File getTemplate()
+    {
+        @NotNull final File result;
+
+        @Nullable final String aux = System.getProperty(Literals.DOCKERFILE_TEMPLATE);
+
+        if (aux == null)
+        {
+            result = immutableGetTemplate();
+        }
+        else
+        {
+            result = new File(aux);
+        }
+
+        return result;
+    }
+
+    /**
+     * Specifies the encoding.
+     * @param encoding the encoding.
+     */
+    protected final void immutableSetEncoding(@NotNull final String encoding)
+    {
+        m__strEncoding = encoding;
+    }
+
+    /**
+     * Specifies the encoding.
+     * @param encoding the encoding.
+     */
+    public void setEncoding(@NotNull final String encoding)
+    {
+        immutableSetEncoding(encoding);
+    }
+
+    /**
+     * Retrieves the encoding.
+     * @return such information.
+     */
+    @Nullable
+    protected final String immutableGetEncoding()
+    {
+        return m__strEncoding;
+    }
+
+    /**
+     * Retrieves the encoding.
+     * @return such information.
+     */
+    @Nullable
+    public String getEncoding()
+    {
+        @Nullable String result = System.getProperty(Literals.DOCKERFILE_ENCODING);
+
+        if (result == null)
+        {
+            result = immutableGetEncoding();
+        }
+
+        return result;
+    }
+
+    /**
      * Executes Dockerfile Maven plugin.
      * @throws org.apache.maven.plugin.MojoExecutionException if the process fails.
      */
@@ -171,8 +282,10 @@ public class DockerfileMojo
         execute(
             log,
             retrieveOwnVersion(retrievePomProperties(log)),
-            retrieveTargetName(retrieveTargetProject()),
-            retrieveTargetVersion(retrieveTargetProject()));
+            retrieveTargetProject(),
+            getOutputDir(),
+            getTemplate(),
+            getEncoding());
     }
 
     /**
@@ -209,64 +322,103 @@ public class DockerfileMojo
     }
 
     /**
-     * Retrieves the target version.
-     * @param project the target project.
-     * @return such version.
-     */
-    @NotNull
-    protected String retrieveTargetVersion(@NotNull final MavenProject project)
-    {
-        return project.getVersion();
-    }
-
-    /**
-     * Retrieves the target name.
-     * @param project the target project.
-     * @return such name.
-     */
-    @NotNull
-    protected String retrieveTargetName(@NotNull final MavenProject project)
-    {
-        return project.getName();
-    }
-
-    /**
      * Executes Dockerfile Maven Plugin.
      * @param log the Maven log.
      * @param ownVersion the Dockerfile Maven Plugin version.
-     * @param targetName the target name.
-     * @param targetVersion the target version.
+     * @param targetProject the target project.
+     * @param outputDir the output dir.
+     * @param template the template.
+     * @param encoding the file encoding.
      * @throws MojoExecutionException if the process fails.
      */
     protected void execute(
         @NotNull final Log log,
         @NotNull final String ownVersion,
-        @NotNull final String targetName,
-        @NotNull final String targetVersion)
+        @NotNull final MavenProject targetProject,
+        @Nullable final File outputDir,
+        @Nullable final File template,
+        @Nullable final String encoding)
       throws MojoExecutionException
     {
         boolean running = false;
 
-        @Nullable final File outputDirPath = getOutputDir();
+        boolean outputDirFine = false;
+        boolean templateFine = false;
 
-        if  (outputDirPath != null)
+        if (outputDir != null)
         {
-            //initialize directories
-            @NotNull final File outputDir = outputDirPath.getAbsoluteFile();
-
             if (   (!outputDir.exists())
                 && (!outputDir.mkdirs()))
             {
                 log.warn("Cannot create output folder: " + outputDir);
             }
-
-            log.info("Running Dockerfile Maven Plugin " + ownVersion + " on " + targetName + " " + targetVersion);
-
-            running = true;
+            else
+            {
+                outputDirFine = true;
+            }
         }
         else
         {
-            log.error("outputDir is null");
+            log.error(Literals.OUTPUT_DIR_CC + " is null");
+        }
+
+        if (template != null)
+        {
+            if (!template.exists())
+            {
+                log.warn("Dockerfile template does not exist: " + template);
+            }
+            else
+            {
+                templateFine = true;
+            }
+        }
+        else
+        {
+            log.error(Literals.TEMPLATE_L + " is null");
+        }
+
+        @NotNull final Charset actualEncoding;
+
+        if (encoding == null)
+        {
+            actualEncoding = Charset.defaultCharset();
+
+            log.warn(Literals.ENCODING_L + " not specified. Using " + actualEncoding);
+        }
+        else
+        {
+            actualEncoding = Charset.forName(encoding);
+        }
+
+        if (   (outputDirFine)
+            && (templateFine))
+        {
+            log.info(
+                "Running Dockerfile Maven Plugin " + ownVersion
+                + " on " + targetProject.getGroupId() + ":" + targetProject.getArtifactId()
+                + ":" + targetProject.getVersion());
+
+            running = true;
+
+            try
+            {
+                generateDockerfile(
+                    outputDir,
+                    template,
+                    targetProject,
+                    ownVersion,
+                    actualEncoding,
+                    FileUtils.getInstance());
+            }
+            catch (@NotNull final SecurityException securityException)
+            {
+                log.error("Not allowed to write output file in " + outputDir.getAbsolutePath(), securityException);
+            }
+            catch (@NotNull final IOException ioException)
+            {
+                log.error("Cannot write output file in " + outputDir.getAbsolutePath(), ioException);
+            }
         }
 
         if (!running)
@@ -315,5 +467,41 @@ public class DockerfileMojo
     protected void initLogging(@NotNull final org.apache.commons.logging.Log commonsLoggingLog)
     {
         UniqueLogFactory.initializeInstance(commonsLoggingLog);
+    }
+
+    /**
+     * Generates the dockerfile.
+     * @param outputDir the output path.
+     * @param template the Dockerfile.stg template.
+     * @param target the target project.
+     * @param ownVersion my own version.
+     * @param encoding the file encoding.
+     * @param fileUtils the {@link FileUtils} instance.
+     * @throws IOException if the file cannot be written.
+     * @throws SecurityException if we're not allowed to write the file.
+     */
+    protected void generateDockerfile(
+        @NotNull final File outputDir,
+        @NotNull final File template,
+        @NotNull final MavenProject target,
+        @NotNull final String ownVersion,
+        @NotNull final Charset encoding,
+        @NotNull final FileUtils fileUtils)
+      throws IOException,
+             SecurityException
+    {
+        @NotNull final Map<String, Object> input = new HashMap<String, Object>();
+
+        input.put(Literals.T_U, target);
+        input.put(Literals.VERSION_L, ownVersion);
+
+        @NotNull final DockerfileGenerator generator = new DockerfileGenerator(input, template);
+
+        @NotNull final String contents = generator.generateDockerfile();
+
+        fileUtils.writeFile(
+            new File(outputDir.getAbsolutePath() + File.separator + "Dockerfile"),
+            contents,
+            encoding);
     }
 }

@@ -1,7 +1,7 @@
 <project
-  xmlns="http://maven.apache.org/POM/4.0.0"
-  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.acmsl</groupId>
   <artifactId>dockerfile-maven-plugin</artifactId>
@@ -60,7 +60,7 @@
   <prerequisites>
     <maven>2.2.1</maven>
   </prerequisites>
- 
+  
   <dependencies>
     <dependency>
       <groupId>org.acmsl</groupId>
@@ -107,6 +107,11 @@
       <scope>compile</scope>
       <optional>true</optional>
     </dependency>
+    <dependency>
+      <groupId>org.apache.maven.plugin-testing</groupId>
+      <artifactId>maven-plugin-testing-harness</artifactId>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
@@ -115,8 +120,8 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-plugin-plugin</artifactId>
         <configuration>
-           <!-- see http://jira.codehaus.org/browse/MNG-5346 -->
-           <!--skipErrorNoDescriptorsFound>true</skipErrorNoDescriptorsFound-->
+          <!-- see http://jira.codehaus.org/browse/MNG-5346 -->
+          <!--skipErrorNoDescriptorsFound>true</skipErrorNoDescriptorsFound-->
         </configuration>
         <executions>
           <execution>

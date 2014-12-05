@@ -60,6 +60,7 @@ import org.jetbrains.annotations.Nullable;
 /*
  * Importing some JDK classes.
  */
+import java.io.File;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -150,12 +151,21 @@ public class DockerfileGenerator
     private final Map<String, ?> m__mInput;
 
     /**
+     * The template file.
+     */
+    @NotNull
+    private final File m__Template;
+
+    /**
      * Creates a new instance.
      * @param input the input.
+     * @param template the template.
      */
-    public DockerfileGenerator(@NotNull final Map<String, ?> input)
+    public DockerfileGenerator(
+        @NotNull final Map<String, ?> input, @NotNull final File template)
     {
         this.m__mInput = input;
+        this.m__Template = template;
     }
 
     /**
@@ -182,35 +192,70 @@ public class DockerfileGenerator
     }
 
     /**
+     * Retrieves the template.
+     * @return such file.
+     */
+    @NotNull
+    public File getTemplate()
+    {
+        return this.m__Template;
+    }
+
+    /**
      * Generates a new Dockerfile using given information.
      * @return the Dockerfile content.
      */
     @NotNull
     public String generateDockerfile()
     {
-        return generateDockerfile(immutableGetInput());
+        return generateDockerfile(immutableGetInput(), getTemplate());
     }
 
     /**
      * Generates a new Dockerfile using given information.
      * @param input the input.
+     * @param template the template.
      * @return the Dockerfile content.
      */
     @NotNull
-    protected String generateDockerfile(@NotNull final Map<String, ?> input)
+    protected String generateDockerfile(
+        @NotNull final Map<String, ?> input, @NotNull final File template)
     {
         @NotNull final STGroup templateGroup =
             retrieveGroup(
-                Literals.ORG_ACMSL_DOCKERFILE_DOCKERFILE_STG,                
+                template,
                 Arrays.asList(Literals.ORG_ACMSL_DOCKERFILE),
                 ST_ERROR_LISTENER,
                 Charset.defaultCharset());
 
-        @NotNull final ST template = templateGroup.getInstanceOf(Literals.SOURCE_L);
+        @NotNull final ST st = templateGroup.getInstanceOf(Literals.SOURCE_L);
 
-        template.add(Literals.C_U, input);
+        st.add(Literals.C_U, input);
 
-        return template.render();
+        return st.render();
+    }
+
+    /**
+     * Retrieves the string template group.
+     * @param path the path.
+     * @param lookupPaths the lookup paths.
+     * @param errorListener the {@link STErrorListener} instance.
+     * @param charset the charset.
+     * @return such instance.
+     */
+    @NotNull
+    protected STGroup retrieveGroup(
+        @NotNull final File template,
+        @NotNull final List<String> lookupPaths,
+        @NotNull final STErrorListener errorListener,
+        @NotNull final Charset charset)
+    {
+        return
+            configureGroupFile(
+                new STGroupFile(template.getAbsolutePath(), charset.displayName()),
+                lookupPaths,
+                errorListener,
+                charset);
     }
 
     /**
@@ -228,7 +273,30 @@ public class DockerfileGenerator
         @NotNull final STErrorListener errorListener,
         @NotNull final Charset charset)
     {
-        @NotNull final STGroupFile result = new STGroupFile(path, charset.displayName());
+        return
+            configureGroupFile(
+                new STGroupFile(path, charset.displayName()),
+                lookupPaths,
+                errorListener,
+                charset);
+    }
+
+    /**
+     * Retrieves the string template group.
+     * @param groupFile the group file.
+     * @param lookupPaths the lookup paths.
+     * @param errorListener the {@link STErrorListener} instance.
+     * @param charset the charset.
+     * @return such instance.
+     */
+    @NotNull
+    protected STGroup configureGroupFile(
+        @NotNull final STGroupFile groupFile,
+        @NotNull final List<String> lookupPaths,
+        @NotNull final STErrorListener errorListener,
+        @NotNull final Charset charset)
+    {
+        @NotNull final STGroupFile result = groupFile;
 
         for (@Nullable final String lookupPath : lookupPaths)
         {
