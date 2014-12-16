@@ -40,12 +40,23 @@ import org.acmsl.commons.utils.io.FileUtils;
 /*
  * Importing some Maven classes.
  */
+import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.ArtifactUtils;
+import org.apache.maven.artifact.deployer.ArtifactDeployer;
+import org.apache.maven.artifact.deployer.ArtifactDeploymentException;
+import org.apache.maven.artifact.factory.ArtifactFactory;
+import org.apache.maven.artifact.repository.ArtifactRepository;
+import org.apache.maven.artifact.repository.ArtifactRepositoryFactory;
+import org.apache.maven.artifact.repository.layout.ArtifactRepositoryLayout;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
+import org.apache.maven.plugin.deploy.AbstractDeployMojo;
 import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugin.logging.Log;
-import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
+import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 
@@ -62,6 +73,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.Charset;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -80,8 +93,13 @@ import org.checkthread.annotations.ThreadSafe;
 @ThreadSafe
 @Mojo(name = Literals.DOCKERFILE_L, defaultPhase = LifecyclePhase.GENERATE_SOURCES, threadSafe = true, executionStrategy = "once-per-session")
 public class DockerfileMojo
-    extends AbstractMojo
+    extends AbstractDeployMojo
 {
+    /**
+     * The repo syntax pattern.
+     */
+    private static final Pattern ALT_REPO_SYNTAX_PATTERN = Pattern.compile("(.+)::(.+)::(.+)");
+
     /**
      * The location of pom.properties within the jar file.
      */
@@ -107,11 +125,89 @@ public class DockerfileMojo
     private String m__strEncoding;
 
     /**
+     * Server Id to map on the &lt;id&gt; under &lt;server&gt; section of settings.xml In most cases, this parameter
+     * will be required for authentication.
+     */
+    @Parameter( property = "repositoryId", defaultValue = "remote-repository", required = true )
+    private String repositoryId;
+
+    /**
+     * URL where the artifact will be deployed.
+     * ie ( file:///C:/m2-repo or scp://host.com/path/to/repo )
+     */
+    @Parameter( property = "url", required = true )
+    private String url;
+
+    /**
+     * Whether to deploy snapshots with a unique version or not.
+     */
+    @Parameter( property = "uniqueVersion", defaultValue = "true" )
+    private boolean uniqueVersion;
+
+    /**
+     * Map that contains the layouts.
+     */
+    @Component( role = ArtifactRepositoryLayout.class )
+    private Map<String, ArtifactRepositoryLayout> repositoryLayouts;
+
+    /**
      * The current build session instance. This is used for toolchain manager API calls.
      * @readonly
      */
     @Parameter (defaultValue = "${session}", required = true, readonly = true)
     private MavenSession session;
+
+    /**
+     */
+    @Component
+    private ArtifactDeployer deployer;
+
+    /**
+     * Component used to create an artifact.
+     */
+    @Component
+    protected ArtifactFactory artifactFactory;
+
+    /**
+     * Component used to create a repository.
+     */
+    @Component
+    ArtifactRepositoryFactory repositoryFactory;
+
+    /**
+     * Specifies an alternative repository to which the project artifacts should be deployed ( other than those
+     * specified in &lt;distributionManagement&gt; ). <br/>
+     * Format: id::layout::url
+     * <dl>
+     * <dt>id</dt>
+     * <dd>The id can be used to pick up the correct credentials from the settings.xml</dd>
+     * <dt>layout</dt>
+     * <dd>Either <code>default</code> for the Maven2 layout or <code>legacy</code> for the Maven1 layout. Maven3 also
+     * uses the <code>default</code> layout.</dd>
+     * <dt>url</dt>
+     * <dd>The location of the repository</dd>
+     * </dl>
+     */
+    @Parameter( property = "altDeploymentRepository" )
+    private String altDeploymentRepository;
+
+    /**
+     * The alternative repository to use when the project has a snapshot version.
+     * 
+     * @since 2.8
+     * @see DeployMojo#altDeploymentRepository
+     */
+    @Parameter( property = "altSnapshotDeploymentRepository" )
+    private String altSnapshotDeploymentRepository;
+
+    /**
+     * The alternative repository to use when the project has a final version.
+     * 
+     * @since 2.8
+     * @see DeployMojo#altDeploymentRepository
+     */
+    @Parameter( property = "altReleaseDeploymentRepository" )
+    private String altReleaseDeploymentRepository;
 
     /**
      * Specifies the output directory.
@@ -261,6 +357,25 @@ public class DockerfileMojo
     }
 
     /**
+     * Retrieves the layout.
+     * @param id the id.
+     * @return the layout.
+     */
+    @NotNull
+    public ArtifactRepositoryLayout getLayout(@NotNull final String id)
+        throws MojoExecutionException
+    {
+        @Nullable final ArtifactRepositoryLayout result = repositoryLayouts.get(id);
+
+        if (result == null)
+        {
+            throw new MojoExecutionException( "Invalid repository layout: " + id );
+        }
+
+        return result;
+    }
+
+    /**
      * Executes Dockerfile Maven plugin.
      * @throws org.apache.maven.plugin.MojoExecutionException if the process fails.
      */
@@ -395,21 +510,24 @@ public class DockerfileMojo
             && (templateFine))
         {
             log.info(
-                "Running Dockerfile Maven Plugin " + ownVersion
+                  "Running Dockerfile Maven Plugin " + ownVersion
                 + " on " + targetProject.getGroupId() + ":" + targetProject.getArtifactId()
                 + ":" + targetProject.getVersion());
 
             running = true;
 
+            @NotNull File dockerfile = null;
+
             try
             {
-                generateDockerfile(
-                    outputDir,
-                    template,
-                    targetProject,
-                    ownVersion,
-                    actualEncoding,
-                    FileUtils.getInstance());
+                dockerfile =
+                    generateDockerfile(
+                        outputDir,
+                        template,
+                        targetProject,
+                        ownVersion,
+                        actualEncoding,
+                        FileUtils.getInstance());
             }
             catch (@NotNull final SecurityException securityException)
             {
@@ -418,6 +536,48 @@ public class DockerfileMojo
             catch (@NotNull final IOException ioException)
             {
                 log.error("Cannot write output file in " + outputDir.getAbsolutePath(), ioException);
+            }
+
+            if (true) // deploy
+            {
+                try
+                {
+                    @NotNull final Artifact artifact =
+                        artifactFactory.createArtifactWithClassifier(
+                            targetProject.getGroupId(),
+                            targetProject.getArtifactId(),
+                            targetProject.getVersion(),
+                            "",
+                            "Dockerfile");
+
+                    @NotNull final ArtifactRepositoryLayout layout = getLayout("default");
+
+                    ArtifactRepository repo =
+                        getDeploymentRepository(
+                            targetProject,
+                            altDeploymentRepository,
+                            altReleaseDeploymentRepository,
+                            altSnapshotDeploymentRepository);
+
+                    @NotNull final ArtifactRepository deploymentRepository =
+                        repositoryFactory.createDeploymentArtifactRepository(
+                            repositoryId, url, layout, uniqueVersion);
+
+                    deploy(
+                        dockerfile,
+                        artifact,
+                        deploymentRepository,
+                        getLocalRepository(),
+                        3); //getRetryFailedDeploymentCount());
+                }
+                catch (@NotNull final ArtifactDeploymentException e)
+                {
+                    throw new MojoExecutionException("Error deploying Dockerfile", e);
+                }
+                catch (@NotNull final MojoFailureException e)
+                {
+                    throw new MojoExecutionException("Error deploying Dockerfile", e);
+                }
             }
         }
 
@@ -477,10 +637,11 @@ public class DockerfileMojo
      * @param ownVersion my own version.
      * @param encoding the file encoding.
      * @param fileUtils the {@link FileUtils} instance.
+     * @return the generated file.
      * @throws IOException if the file cannot be written.
      * @throws SecurityException if we're not allowed to write the file.
      */
-    protected void generateDockerfile(
+    protected File generateDockerfile(
         @NotNull final File outputDir,
         @NotNull final File template,
         @NotNull final MavenProject target,
@@ -490,6 +651,8 @@ public class DockerfileMojo
       throws IOException,
              SecurityException
     {
+        @NotNull final File result;
+
         @NotNull final Map<String, Object> input = new HashMap<String, Object>();
 
         input.put(Literals.T_U, target);
@@ -499,9 +662,86 @@ public class DockerfileMojo
 
         @NotNull final String contents = generator.generateDockerfile();
 
+        result = new File(outputDir.getAbsolutePath() + File.separator + "Dockerfile");
+
         fileUtils.writeFile(
-            new File(outputDir.getAbsolutePath() + File.separator + "Dockerfile"),
+            result,
             contents,
             encoding);
+
+        return result;
+    }
+
+    /**
+     * Retrieves the deployment repository.
+     * @param project the project.
+     * @param altDeploymentRepository the deployment repository.
+     * @param altReleaseDeploymentRepository the release repository.
+     * @param altSnapshotDeploymentRepository the snapshot repository.
+     * @return the repository.
+     */
+    protected ArtifactRepository getDeploymentRepository(
+        @NotNull final MavenProject project,
+        @NotNull final String altDeploymentRepository,
+        @NotNull final String altReleaseDeploymentRepository,
+        @NotNull final String altSnapshotDeploymentRepository)
+      throws MojoExecutionException,
+             MojoFailureException
+    {
+        ArtifactRepository repo = null;
+
+        String altDeploymentRepo;
+
+        if  (ArtifactUtils.isSnapshot( project.getVersion() ) && altSnapshotDeploymentRepository != null)
+        {
+            altDeploymentRepo = altSnapshotDeploymentRepository;
+        }
+        else if ( !ArtifactUtils.isSnapshot( project.getVersion() ) && altReleaseDeploymentRepository != null )
+        {
+            altDeploymentRepo = altReleaseDeploymentRepository;
+        }
+        else
+        {
+            altDeploymentRepo = altDeploymentRepository;
+        }
+
+        if ( altDeploymentRepo != null )
+        {
+            getLog().info( "Using alternate deployment repository " + altDeploymentRepo );
+
+            Matcher matcher = ALT_REPO_SYNTAX_PATTERN.matcher( altDeploymentRepo );
+
+            if ( !matcher.matches() )
+            {
+                throw new MojoFailureException( altDeploymentRepo, "Invalid syntax for repository.",
+                                                "Invalid syntax for alternative repository. Use \"id::layout::url\"." );
+            }
+            else
+            {
+                String id = matcher.group( 1 ).trim();
+                String layout = matcher.group( 2 ).trim();
+                String url = matcher.group( 3 ).trim();
+
+                ArtifactRepositoryLayout repoLayout = getLayout( layout );
+
+                repo = repositoryFactory.createDeploymentArtifactRepository( id, url, repoLayout, true );
+            }
+        }
+
+        if ( repo == null )
+        {
+            repo = project.getDistributionManagementArtifactRepository();
+        }
+
+        if ( repo == null )
+        {
+            String msg =
+                "Deployment failed: repository element was not specified in the POM inside"
+                    + " distributionManagement element or in -DaltDeploymentRepository=id::layout::url parameter";
+
+            throw new MojoExecutionException( msg );
+        }
+
+        return repo;
     }
 }

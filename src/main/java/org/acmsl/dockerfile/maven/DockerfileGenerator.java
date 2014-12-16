@@ -237,7 +237,7 @@ public class DockerfileGenerator
 
     /**
      * Retrieves the string template group.
-     * @param path the path.
+     * @param template the template.
      * @param lookupPaths the lookup paths.
      * @param errorListener the {@link STErrorListener} instance.
      * @param charset the charset.
