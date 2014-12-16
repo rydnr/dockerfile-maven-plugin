@@ -6,7 +6,7 @@
   <groupId>org.acmsl</groupId>
   <artifactId>dockerfile-maven-plugin</artifactId>
   <packaging>maven-plugin</packaging>
-  <version>latest-SNAPSHOT</version>
+  <version>3.1.0029</version>
   <name>Dockerfile Maven plugin</name>
   <url>http://www.acm-sl.org</url>
   <inceptionYear>2014</inceptionYear>
@@ -25,7 +25,7 @@
   <parent>
     <groupId>org.acmsl</groupId>
     <artifactId>acmsl-pom</artifactId>
-    <version>latest-SNAPSHOT</version>
+    <version>3.1.0029</version>
   </parent>
 
   <scm>
