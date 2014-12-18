@@ -159,8 +159,8 @@ public class DockerfileMojo
 
     /**
      */
-    @Component
-    private ArtifactDeployer deployer;
+//    @Component
+//    private ArtifactDeployer deployer;
 
     /**
      * Component used to create an artifact.
@@ -193,18 +193,14 @@ public class DockerfileMojo
 
     /**
      * The alternative repository to use when the project has a snapshot version.
-     * 
      * @since 2.8
-     * @see DeployMojo#altDeploymentRepository
      */
     @Parameter( property = "altSnapshotDeploymentRepository" )
     private String altSnapshotDeploymentRepository;
 
     /**
      * The alternative repository to use when the project has a final version.
-     * 
      * @since 2.8
-     * @see DeployMojo#altDeploymentRepository
      */
     @Parameter( property = "altReleaseDeploymentRepository" )
     private String altReleaseDeploymentRepository;
