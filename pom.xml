@@ -61,6 +61,25 @@
     <maven>2.2.1</maven>
   </prerequisites>
   
+  <distributionManagement>
+    <repository>
+      <id>acmsl-plugin-releases</id>
+      <name>acmsl-plugin-releases</name>
+      <url>http://maven.acm-sl.org/plugin-releases-local</url>
+    </repository>
+    <snapshotRepository>
+      <id>acmsl-plugin-snapshots</id>
+      <name>acmsl-plugin-snapshots</name>
+      <url>http://maven.acm-sl.org/plugin-snapshots-local</url>
+    </snapshotRepository>
+    <!-- site:deploy pending -->
+    <!--site>
+        <id>github</id>
+        <name>Github project</name>
+        <url>http://github.com/rydnr/acmsl-pom</url>
+        </site-->
+  </distributionManagement>
+
   <dependencies>
     <dependency>
       <groupId>org.acmsl</groupId>
