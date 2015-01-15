@@ -63,14 +63,14 @@
   
   <distributionManagement>
     <repository>
-      <id>acmsl-plugin-releases</id>
-      <name>acmsl-plugin-releases</name>
-      <url>http://maven.acm-sl.org/plugin-releases-local</url>
+      <id>acmsl-plugins-releases</id>
+      <name>acmsl-plugins-releases</name>
+      <url>http://maven.acm-sl.org/plugins-releases-local</url>
     </repository>
     <snapshotRepository>
-      <id>acmsl-plugin-snapshots</id>
-      <name>acmsl-plugin-snapshots</name>
-      <url>http://maven.acm-sl.org/plugin-snapshots-local</url>
+      <id>acmsl-plugins-snapshots</id>
+      <name>acmsl-plugins-snapshots</name>
+      <url>http://maven.acm-sl.org/plugins-snapshots-local</url>
     </snapshotRepository>
     <!-- site:deploy pending -->
     <!--site>
