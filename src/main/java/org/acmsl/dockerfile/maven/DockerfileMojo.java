@@ -42,14 +42,11 @@ import org.acmsl.commons.utils.io.FileUtils;
  */
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.ArtifactUtils;
-import org.apache.maven.artifact.deployer.ArtifactDeployer;
 import org.apache.maven.artifact.deployer.ArtifactDeploymentException;
-import org.apache.maven.artifact.factory.ArtifactFactory;
 import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.artifact.repository.ArtifactRepositoryFactory;
 import org.apache.maven.artifact.repository.layout.ArtifactRepositoryLayout;
 import org.apache.maven.execution.MavenSession;
-import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.deploy.AbstractDeployMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -63,6 +60,7 @@ import org.apache.maven.project.MavenProject;
 /*
  * Importing NotNull annotations.
  */
+import org.apache.maven.repository.RepositorySystem;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -166,7 +164,7 @@ public class DockerfileMojo
      * Component used to create an artifact.
      */
     @Component
-    protected ArtifactFactory artifactFactory;
+    protected RepositorySystem repositorySystem;
 
     /**
      * Component used to create a repository.
@@ -512,7 +510,7 @@ public class DockerfileMojo
 
             running = true;
 
-            @NotNull File dockerfile = null;
+            @Nullable File dockerfile = null;
 
             try
             {
@@ -539,16 +537,14 @@ public class DockerfileMojo
                 try
                 {
                     @NotNull final Artifact artifact =
-                        artifactFactory.createArtifactWithClassifier(
+                        repositorySystem.createArtifactWithClassifier(
                             targetProject.getGroupId(),
                             targetProject.getArtifactId(),
                             targetProject.getVersion(),
                             "",
                             "Dockerfile");
 
-                    @NotNull final ArtifactRepositoryLayout layout = getLayout("default");
-
-                    ArtifactRepository repo =
+                    @NotNull final ArtifactRepository repo =
                         getDeploymentRepository(
                             targetProject,
                             altDeploymentRepository,
@@ -557,7 +553,7 @@ public class DockerfileMojo
 
                     @NotNull final ArtifactRepository deploymentRepository =
                         repositoryFactory.createDeploymentArtifactRepository(
-                            repositoryId, url, layout, uniqueVersion);
+                            repo.getId(), repo.getUrl(), getLayout("default"), uniqueVersion);
 
                     deploy(
                         dockerfile,
@@ -660,10 +656,7 @@ public class DockerfileMojo
 
         result = new File(outputDir.getAbsolutePath() + File.separator + "Dockerfile");
 
-        fileUtils.writeFile(
-            result,
-            contents,
-            encoding);
+        fileUtils.writeFile(result, contents, encoding);
 
         return result;
     }
@@ -678,15 +671,15 @@ public class DockerfileMojo
      */
     protected ArtifactRepository getDeploymentRepository(
         @NotNull final MavenProject project,
-        @NotNull final String altDeploymentRepository,
-        @NotNull final String altReleaseDeploymentRepository,
-        @NotNull final String altSnapshotDeploymentRepository)
+        @Nullable final String altDeploymentRepository,
+        @Nullable final String altReleaseDeploymentRepository,
+        @Nullable final String altSnapshotDeploymentRepository)
       throws MojoExecutionException,
              MojoFailureException
     {
-        ArtifactRepository repo = null;
+        @Nullable ArtifactRepository result = null;
 
-        String altDeploymentRepo;
+        @Nullable final String altDeploymentRepo;
 
         if  (ArtifactUtils.isSnapshot( project.getVersion() ) && altSnapshotDeploymentRepository != null)
         {
@@ -701,43 +694,45 @@ public class DockerfileMojo
             altDeploymentRepo = altDeploymentRepository;
         }
 
-        if ( altDeploymentRepo != null )
+        if (altDeploymentRepo != null)
         {
-            getLog().info( "Using alternate deployment repository " + altDeploymentRepo );
+            getLog().info("Using alternate deployment repository " + altDeploymentRepo);
 
-            Matcher matcher = ALT_REPO_SYNTAX_PATTERN.matcher( altDeploymentRepo );
+            @NotNull final Matcher matcher = ALT_REPO_SYNTAX_PATTERN.matcher(altDeploymentRepo);
 
-            if ( !matcher.matches() )
+            if (!matcher.matches())
             {
-                throw new MojoFailureException( altDeploymentRepo, "Invalid syntax for repository.",
-                                                "Invalid syntax for alternative repository. Use \"id::layout::url\"." );
-            }
-            else
+                throw
+                new MojoFailureException(
+                                        altDeploymentRepo,
+                                        "Invalid syntax for repository.",
+                                        "Invalid syntax for alternative repository. Use \"id::layout::url\".");
+            } else
             {
-                String id = matcher.group( 1 ).trim();
-                String layout = matcher.group( 2 ).trim();
-                String url = matcher.group( 3 ).trim();
+                @NotNull final String id = matcher.group(1).trim();
+                @NotNull final String layout = matcher.group(2).trim();
+                @NotNull final String url = matcher.group(3).trim();
 
-                ArtifactRepositoryLayout repoLayout = getLayout( layout );
+                @NotNull final ArtifactRepositoryLayout repoLayout = getLayout(layout);
 
-                repo = repositoryFactory.createDeploymentArtifactRepository( id, url, repoLayout, true );
+                result = repositoryFactory.createDeploymentArtifactRepository(id, url, repoLayout, true);
             }
         }
 
-        if ( repo == null )
+        if (result == null)
         {
-            repo = project.getDistributionManagementArtifactRepository();
+            result = project.getDistributionManagementArtifactRepository();
         }
 
-        if ( repo == null )
+        if (result == null)
         {
-            String msg =
+            @NotNull final String msg =
                 "Deployment failed: repository element was not specified in the POM inside"
                     + " distributionManagement element or in -DaltDeploymentRepository=id::layout::url parameter";
 
-            throw new MojoExecutionException( msg );
+            throw new MojoExecutionException(msg);
         }
 
-        return repo;
+        return result;
     }
 }
