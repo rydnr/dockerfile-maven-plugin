@@ -127,4 +127,44 @@ public class Literals
      * String literal: "dockerfile.encoding".
      */
     public static final String DOCKERFILE_ENCODING = "dockerfile.encoding";
+
+    /**
+     * String literal: "deploy".
+     */
+    public static final String DEPLOY_L = "deploy";
+
+    /**
+     * String literal: "dockerfile.deploy".
+     */
+    public static final String DOCKERFILE_DEPLOY = "dockerfile.deploy";
+
+    /**
+     * String literal: "uniqueVersion".
+     */
+    public static final String UNIQUE_VERSION_L = "uniqueVersion";
+
+    /**
+     * String literal: "dockerfile.uniqueVersion".
+     */
+    public static final String DOCKERFILE_UNIQUE_VERSION = "dockerfile.uniqueVersion";
+
+    /**
+     * String literal: "classifier".
+     */
+    public static final String CLASSIFIER_L = "classifier";
+
+    /**
+     * String literal: "dockerfile.classifier".
+     */
+    public static final String DOCKERFILE_CLASSIFIER = "dockerfile.classifier";
+
+    /**
+     * String literal: "deploymentRetries".
+     */
+    public static final String DEPLOYMENT_RETRIES = "deploymentRetries";
+
+    /**
+     * String literal: "dockerfile.deploymentRetries".
+     */
+    public static final String DOCKERFILE_DEPLOYMENT_RETRIES = "dockerfile.deploymentRetries";
 }

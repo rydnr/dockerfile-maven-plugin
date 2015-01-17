@@ -56,11 +56,11 @@ import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
+import org.apache.maven.repository.RepositorySystem;
 
 /*
  * Importing NotNull annotations.
  */
-import org.apache.maven.repository.RepositorySystem;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -89,7 +89,10 @@ import org.checkthread.annotations.ThreadSafe;
  */
 @SuppressWarnings("unused")
 @ThreadSafe
-@Mojo(name = Literals.DOCKERFILE_L, defaultPhase = LifecyclePhase.GENERATE_SOURCES, threadSafe = true, executionStrategy = "once-per-session")
+@Mojo(name = Literals.DOCKERFILE_L,
+      defaultPhase = LifecyclePhase.GENERATE_SOURCES,
+      threadSafe = true,
+      executionStrategy = "once-per-session")
 public class DockerfileMojo
     extends AbstractDeployMojo
 {
@@ -107,45 +110,70 @@ public class DockerfileMojo
     /**
      * The output directory.
      */
-    @Parameter (name = Literals.OUTPUT_DIR_CC, property = Literals.OUTPUT_DIR_CC, required = false, defaultValue = "${project.build.outputDirectory}/META-INF/")
+    @Parameter(name = Literals.OUTPUT_DIR_CC,
+               property = Literals.OUTPUT_DIR_CC,
+               required = false,
+               defaultValue = "${project.build.outputDirectory}/META-INF/")
+    @Nullable
     private File m__OutputDir;
 
     /**
      * The output directory.
      */
     @Parameter (name = Literals.TEMPLATE_L, property = Literals.TEMPLATE_L, required = true)
+    @NotNull
     private File m__Template;
 
     /**
      * The file encoding.
      */
-    @Parameter (name = Literals.ENCODING_L, property = Literals.ENCODING_L, required = false, defaultValue = "${project.build.sourceEncoding}")
+    @Parameter(name = Literals.ENCODING_L,
+               property = Literals.ENCODING_L,
+               required = false,
+               defaultValue = "${project.build.sourceEncoding}")
+    @NotNull
     private String m__strEncoding;
 
     /**
-     * Server Id to map on the &lt;id&gt; under &lt;server&gt; section of settings.xml In most cases, this parameter
-     * will be required for authentication.
+     * Whether to deploy the Dockerfile or not.
      */
-    @Parameter( property = "repositoryId", defaultValue = "remote-repository", required = true )
-    private String repositoryId;
-
-    /**
-     * URL where the artifact will be deployed.
-     * ie ( file:///C:/m2-repo or scp://host.com/path/to/repo )
-     */
-    @Parameter( property = "url", required = true )
-    private String url;
+    @Parameter(name = Literals.DEPLOY_L,
+               property = Literals.DEPLOY_L,
+               required = false,
+               defaultValue = "true")
+    @Nullable
+    private boolean m__bDeploy;
 
     /**
      * Whether to deploy snapshots with a unique version or not.
      */
-    @Parameter( property = "uniqueVersion", defaultValue = "true" )
-    private boolean uniqueVersion;
+    @Parameter(property = Literals.UNIQUE_VERSION_L, defaultValue = "true" )
+    private boolean m__bUniqueVersion;
 
+    /**
+     * The Dockerfile classifier.
+     */
+    @Parameter(name = Literals.CLASSIFIER_L,
+               property = Literals.CLASSIFIER_L,
+               required = false,
+               defaultValue = "Dockerfile")
+    @NotNull
+    private String m__strClassifier;
+
+    /**
+     * The number of retries when deployment fails.
+     */
+    @Parameter(name = Literals.DEPLOYMENT_RETRIES,
+               property = Literals.DEPLOYMENT_RETRIES,
+               required = false,
+               defaultValue = "1")
+    private int m__iRetryFailedDeploymentCount;
+    
     /**
      * Map that contains the layouts.
      */
     @Component( role = ArtifactRepositoryLayout.class )
+    @NotNull
     private Map<String, ArtifactRepositoryLayout> repositoryLayouts;
 
     /**
@@ -156,14 +184,10 @@ public class DockerfileMojo
     private MavenSession session;
 
     /**
-     */
-//    @Component
-//    private ArtifactDeployer deployer;
-
-    /**
-     * Component used to create an artifact.
+     * Component used to create and deploy the Dockerfile artifact.
      */
     @Component
+    @NotNull
     protected RepositorySystem repositorySystem;
 
     /**
@@ -186,21 +210,24 @@ public class DockerfileMojo
      * <dd>The location of the repository</dd>
      * </dl>
      */
-    @Parameter( property = "altDeploymentRepository" )
+    @Parameter(property = "altDeploymentRepository")
+    @Nullable
     private String altDeploymentRepository;
 
     /**
      * The alternative repository to use when the project has a snapshot version.
      * @since 2.8
      */
-    @Parameter( property = "altSnapshotDeploymentRepository" )
+    @Parameter(property = "altSnapshotDeploymentRepository")
+    @Nullable
     private String altSnapshotDeploymentRepository;
 
     /**
      * The alternative repository to use when the project has a final version.
      * @since 2.8
      */
-    @Parameter( property = "altReleaseDeploymentRepository" )
+    @Parameter(property = "altReleaseDeploymentRepository")
+    @Nullable
     private String altReleaseDeploymentRepository;
 
     /**
@@ -351,6 +378,198 @@ public class DockerfileMojo
     }
 
     /**
+     * Specifies whether to deploy the Dockerfile or not.
+     * @param deploy such condition.
+     */
+    protected final void immutableSetDeploy(final boolean deploy)
+    {
+        m__bDeploy = deploy;
+    }
+
+    /**
+     * Specifies whether to deploy the Dockerfile or not.
+     * @param deploy such condition.
+     */
+    public void setDeploy(final boolean deploy)
+    {
+        immutableSetDeploy(deploy);
+    }
+
+    /**
+     * Retrieves whether to deploy the Dockerfile or not.
+     * @return such information.
+     */
+    protected final boolean immutableGetDeploy()
+    {
+        return m__bDeploy;
+    }
+
+    /**
+     * Retrieves whether to deploy the Dockerfile or not.
+     * @return such information.
+     */
+    public boolean getDeploy()
+    {
+        @Nullable final boolean result;
+
+        @Nullable final String property = System.getProperty(Literals.DOCKERFILE_DEPLOY);
+
+        if (property == null)
+        {
+            result = immutableGetDeploy();
+        }
+        else
+        {
+            result = Boolean.valueOf(property);
+        }
+
+        return result;
+    }
+
+    /**
+     * Specifies whether to use unique versions when deploying the Dockerfile or not.
+     * @param uniqueVersion such condition.
+     */
+    protected final void immutableSetUniqueVersion(final boolean uniqueVersion)
+    {
+        m__bUniqueVersion = uniqueVersion;
+    }
+
+    /**
+     * Specifies whether to use unique versions when deploying the Dockerfile or not.
+     * @param uniqueVersion such condition.
+     */
+    public void setUniqueVersion(final boolean uniqueVersion)
+    {
+        immutableSetUniqueVersion(uniqueVersion);
+    }
+
+    /**
+     * Retrieves whether to use unique versions when deploying the Dockerfile or not.
+     * @return such information.
+     */
+    protected final boolean immutableGetUniqueVersion()
+    {
+        return m__bUniqueVersion;
+    }
+
+    /**
+     * Retrieves whether to use unique versions when deploying the Dockerfile or not.
+     * @return such information.
+     */
+    public boolean getUniqueVersion()
+    {
+        @Nullable final boolean result;
+
+        @Nullable final String property = System.getProperty(Literals.DOCKERFILE_UNIQUE_VERSION);
+
+        if (property == null)
+        {
+            result = immutableGetUniqueVersion();
+        }
+        else
+        {
+            result = Boolean.valueOf(property);
+        }
+
+        return result;
+    }
+
+    /**
+     * Specifies the classifier.
+     * @param classifier the classifier.
+     */
+    protected final void immutableSetClassifier(@NotNull final String classifier)
+    {
+        m__strClassifier = classifier;
+    }
+
+    /**
+     * Specifies the classifier.
+     * @param classifier the classifier.
+     */
+    public void setClassifier(@NotNull final String classifier)
+    {
+        immutableSetClassifier(classifier);
+    }
+
+    /**
+     * Retrieves the classifier.
+     * @return such information.
+     */
+    @Nullable
+    protected final String immutableGetClassifier()
+    {
+        return m__strClassifier;
+    }
+
+    /**
+     * Retrieves the classifier.
+     * @return such information.
+     */
+    @Nullable
+    public String getClassifier()
+    {
+        @Nullable String result = System.getProperty(Literals.DOCKERFILE_CLASSIFIER);
+
+        if (result == null)
+        {
+            result = immutableGetClassifier();
+        }
+
+        return result;
+    }
+
+    /**
+     * Specifies how many times a failed deployment will be retried before giving up.
+     * @param retryFailedDeploymentCount such count.
+     */
+    protected final void immutableSetRetryFailedDeploymentCount(final int retryFailedDeploymentCount)
+    {
+        m__iRetryFailedDeploymentCount = retryFailedDeploymentCount;
+    }
+
+    /**
+     * Specifies how many times a failed deployment will be retried before giving up.
+     * @param retryFailedDeploymentCount such count.
+     */
+    public void setRetryFailedDeploymentCount(final int retryFailedDeploymentCount)
+    {
+        immutableSetRetryFailedDeploymentCount(retryFailedDeploymentCount);
+    }
+
+    /**
+     * Retrieves how many times a failed deployment will be retried before giving up.
+     * @return such information.
+     */
+    protected final int immutableGetRetryFailedDeploymentCount()
+    {
+        return m__iRetryFailedDeploymentCount;
+    }
+
+    /**
+     * Retrieves how many times a failed deployment will be retried before giving up.
+     * @return such information.
+     */
+    public int getRetryFailedDeploymentCount()
+    {
+        @Nullable final int result;
+
+        @Nullable final String property = System.getProperty(Literals.DOCKERFILE_DEPLOYMENT_RETRIES);
+
+        if (property == null)
+        {
+            result = immutableGetRetryFailedDeploymentCount();
+        }
+        else
+        {
+            result = Integer.valueOf(property);
+        }
+
+        return result;
+    }
+
+    /**
      * Retrieves the layout.
      * @param id the id.
      * @return the layout.
@@ -394,7 +613,11 @@ public class DockerfileMojo
             retrieveTargetProject(),
             getOutputDir(),
             getTemplate(),
-            getEncoding());
+            getEncoding(),
+            getDeploy(),
+            getUniqueVersion(),
+            getClassifier(),
+            getRetryFailedDeploymentCount());
     }
 
     /**
@@ -438,15 +661,23 @@ public class DockerfileMojo
      * @param outputDir the output dir.
      * @param template the template.
      * @param encoding the file encoding.
+     * @param deploy whether to deploy the Dockerfile or not.
+     * @param uniqueVersion whether to use unique versions when deploying the Dockerfile or not.
+     * @param classifier the Dockerfile classifier.
+     * @param retryFailedDeploymentCount how many times a failed deployment will be retried before giving up.
      * @throws MojoExecutionException if the process fails.
      */
     protected void execute(
         @NotNull final Log log,
         @NotNull final String ownVersion,
         @NotNull final MavenProject targetProject,
-        @Nullable final File outputDir,
-        @Nullable final File template,
-        @Nullable final String encoding)
+        @NotNull final File outputDir,
+        @NotNull final File template,
+        @NotNull final String encoding,
+        final boolean deploy,
+        final boolean uniqueVersions,
+        @NotNull final String classifier,
+        final int retryFailedDeploymentCount)
       throws MojoExecutionException
     {
         boolean running = false;
@@ -532,7 +763,7 @@ public class DockerfileMojo
                 log.error("Cannot write output file in " + outputDir.getAbsolutePath(), ioException);
             }
 
-            if (true) // deploy
+            if (deploy)
             {
                 try
                 {
@@ -542,7 +773,7 @@ public class DockerfileMojo
                             targetProject.getArtifactId(),
                             targetProject.getVersion(),
                             "",
-                            "Dockerfile");
+                            classifier);
 
                     @NotNull final ArtifactRepository repo =
                         getDeploymentRepository(
@@ -553,14 +784,14 @@ public class DockerfileMojo
 
                     @NotNull final ArtifactRepository deploymentRepository =
                         repositoryFactory.createDeploymentArtifactRepository(
-                            repo.getId(), repo.getUrl(), getLayout("default"), uniqueVersion);
+                            repo.getId(), repo.getUrl(), getLayout("default"), uniqueVersions);
 
                     deploy(
                         dockerfile,
                         artifact,
                         deploymentRepository,
                         getLocalRepository(),
-                        3); //getRetryFailedDeploymentCount());
+                        retryFailedDeploymentCount);
                 }
                 catch (@NotNull final ArtifactDeploymentException e)
                 {
