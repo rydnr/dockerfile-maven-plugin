@@ -524,7 +524,7 @@ public class DockerfileMojo
      * Specifies how many times a failed deployment will be retried before giving up.
      * @param retryFailedDeploymentCount such count.
      */
-    protected final void immutableSetRetryFailedDeploymentCount(final int retryFailedDeploymentCount)
+    protected final void immutableSetDeploymentRetries(final int retryFailedDeploymentCount)
     {
         m__iRetryFailedDeploymentCount = retryFailedDeploymentCount;
     }
@@ -533,16 +533,16 @@ public class DockerfileMojo
      * Specifies how many times a failed deployment will be retried before giving up.
      * @param retryFailedDeploymentCount such count.
      */
-    public void setRetryFailedDeploymentCount(final int retryFailedDeploymentCount)
+    public void setDeploymentRetries(final int retryFailedDeploymentCount)
     {
-        immutableSetRetryFailedDeploymentCount(retryFailedDeploymentCount);
+        immutableSetDeploymentRetries(retryFailedDeploymentCount);
     }
 
     /**
      * Retrieves how many times a failed deployment will be retried before giving up.
      * @return such information.
      */
-    protected final int immutableGetRetryFailedDeploymentCount()
+    protected final int immutableGetDeploymentRetries()
     {
         return m__iRetryFailedDeploymentCount;
     }
@@ -551,7 +551,7 @@ public class DockerfileMojo
      * Retrieves how many times a failed deployment will be retried before giving up.
      * @return such information.
      */
-    public int getRetryFailedDeploymentCount()
+    public int getDeploymentRetries()
     {
         @Nullable final int result;
 
@@ -559,7 +559,7 @@ public class DockerfileMojo
 
         if (property == null)
         {
-            result = immutableGetRetryFailedDeploymentCount();
+            result = immutableGetDeploymentRetries();
         }
         else
         {
@@ -617,7 +617,7 @@ public class DockerfileMojo
             getDeploy(),
             getUniqueVersion(),
             getClassifier(),
-            getRetryFailedDeploymentCount());
+            getDeploymentRetries());
     }
 
     /**
