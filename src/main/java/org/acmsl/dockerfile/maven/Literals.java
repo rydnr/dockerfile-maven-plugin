@@ -34,18 +34,12 @@
  */
 package org.acmsl.dockerfile.maven;
 
-/*
- * Importing checkthread.org annotations.
- */
-import org.checkthread.annotations.ThreadSafe;
-
 /**
  * Literals for Dockerfile Maven Plugin.
  * @author <a href="mailto:chous@acm-sl.org">Jose San Leandro</a>
  * @since 1.0
  * Created: 2014/12/01
  */
-@ThreadSafe
 public class Literals
 {
     /**

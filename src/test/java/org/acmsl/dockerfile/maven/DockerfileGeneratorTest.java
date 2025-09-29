@@ -47,16 +47,6 @@ import java.util.Map;
 import java.util.HashMap;
 
 /*
- * Importing NotNull annotations.
- */
-import org.jetbrains.annotations.NotNull;
-
-/*
- * Importing checkthread.org annotations.
- */
-import org.checkthread.annotations.ThreadSafe;
-
-/*
  * Importing JUnit classes.
  */
 import org.junit.Assert;
@@ -71,7 +61,6 @@ import org.junit.Test;
  * @author <a href="mailto:chous@acm-sl.org">Jose San Leandro Armendariz</a>
  * Created: 2014/12/03
  */
-@ThreadSafe
 @RunWith(JUnit4.class)
 public class DockerfileGeneratorTest
 {
@@ -81,7 +70,6 @@ public class DockerfileGeneratorTest
     /**
      * A sample Dockerfile.stg
      */
-    @NotNull
     public static final String DOCKERFILE_STG_CONTENTS =
           "group Dockerfile;\n\n"
         + "source(C) ::= <<\n"
@@ -96,23 +84,23 @@ public class DockerfileGeneratorTest
     public void generator_finds_the_template()
         throws IOException
     {
-        @NotNull final Map<String, String> input = new HashMap<String, String>();
+        final Map<String, String> input = new HashMap<String, String>();
 
-        @NotNull final String testValue = "test-value-" + new Date();
+        final String testValue = "test-value-" + new Date();
 
         input.put("key", testValue);
 
-        @NotNull final File template = tempFolder.newFile("Dockerfile.stg");
+        final File template = tempFolder.newFile("Dockerfile.stg");
 
-        @NotNull final FileUtils fileUtils = FileUtils.getInstance();
+        final FileUtils fileUtils = FileUtils.getInstance();
 
         fileUtils.writeFileIfPossible(template, DOCKERFILE_STG_CONTENTS, Charset.defaultCharset());
 
-        @NotNull final DockerfileGenerator generator = new DockerfileGenerator(input, template);
+        final DockerfileGenerator generator = new DockerfileGenerator(input, template);
 
         Assert.assertNotNull(generator);
 
-        @NotNull final String dockerfileContents = generator.generateDockerfile();
+        final String dockerfileContents = generator.generateDockerfile();
 
         Assert.assertNotNull(dockerfileContents);
 

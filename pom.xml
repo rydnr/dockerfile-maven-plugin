@@ -6,7 +6,7 @@
   <groupId>org.acmsl</groupId>
   <artifactId>dockerfile-maven-plugin</artifactId>
   <packaging>maven-plugin</packaging>
-  <version>latest-SNAPSHOT</version>
+  <version>0.0.0-SNAPSHOT</version>
   <name>Dockerfile Maven plugin</name>
   <url>http://www.acm-sl.org</url>
   <inceptionYear>2014</inceptionYear>
@@ -25,7 +25,7 @@
   <parent>
     <groupId>org.acmsl</groupId>
     <artifactId>acmsl-pom</artifactId>
-    <version>latest-SNAPSHOT</version>
+    <version>0.0.0-SNAPSHOT</version>
   </parent>
 
   <scm>
@@ -72,28 +72,36 @@
       <name>acmsl-plugins-snapshots</name>
       <url>http://maven.acm-sl.org/plugins-snapshots-local</url>
     </snapshotRepository>
-    <!-- site:deploy pending -->
     <!--site>
-        <id>github</id>
-        <name>Github project</name>
-        <url>http://github.com/rydnr/acmsl-pom</url>
-        </site-->
+      <id>github</id>
+      <name>Github project</name>
+      <url>http://github.com/rydnr/acmsl-pom</url>
+    </site-->
   </distributionManagement>
 
   <dependencies>
     <dependency>
-      <groupId>org.acmsl</groupId>
+      <groupId>org.acmsl.commons</groupId>
       <artifactId>java-commons</artifactId>
+      <version>1.0.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.maven.plugins</groupId>
+      <artifactId>maven-deploy-plugin</artifactId>
+      <version>3.1.4</version>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.maven</groupId>
       <artifactId>maven-plugin-api</artifactId>
       <optional>true</optional>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.maven</groupId>
       <artifactId>maven-core</artifactId>
-      <optional>true</optional>
+      <version>3.3.9</version>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.maven.plugin-tools</groupId>
@@ -103,28 +111,25 @@
     <dependency>
       <groupId>org.apache.maven.plugins</groupId>
       <artifactId>maven-deploy-plugin</artifactId>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.maven</groupId>
       <artifactId>maven-artifact</artifactId>
       <version>2.2.1</version>
+      <scope>provided</scope>
     </dependency>
     <dependency>
-      <groupId>log4j</groupId>
-      <artifactId>log4j</artifactId>
-      <scope>runtime</scope>
-      <optional>true</optional>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>2.0.13</version> <!-- align with Maven’s SLF4J (2.x) -->
+      <scope>provided</scope>
     </dependency>
-    <dependency>
-      <groupId>org.jetbrains</groupId>
-      <artifactId>annotations</artifactId>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
+    <!--dependency>
       <groupId>org.checkthread</groupId>
       <artifactId>checkthread-annotations</artifactId>
       <optional>true</optional>
-    </dependency>
+    </dependency-->
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>

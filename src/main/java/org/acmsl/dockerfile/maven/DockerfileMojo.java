@@ -31,15 +31,118 @@
  */
 package org.acmsl.dockerfile.maven;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.Charset;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
+import org.acmsl.commons.utils.io.FileUtils;
+import org.apache.maven.plugin.AbstractMojo;
+import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
+import org.apache.maven.plugins.annotations.LifecyclePhase;
+import org.apache.maven.project.MavenProject;
+import org.apache.maven.project.MavenProjectHelper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+@Mojo(name = Literals.DOCKERFILE_L,
+      defaultPhase = LifecyclePhase.GENERATE_RESOURCES,
+      threadSafe = true)
+public class DockerfileMojo extends AbstractMojo {
+
+  private static final Logger LOGGER = LoggerFactory.getLogger(DockerfileMojo.class);
+
+  @Parameter(defaultValue = "${project}", readonly = true, required = true)
+  private MavenProject project;
+
+  @Parameter(defaultValue = "${project.build.outputDirectory}/META-INF/", required = true)
+  private File outputDir;
+
+  @Parameter(property = Literals.TEMPLATE_L, required = true)
+  private File template;
+
+  @Parameter(defaultValue = "${project.build.sourceEncoding}")
+  private String encoding;
+
+  @Parameter(property = Literals.CLASSIFIER_L, defaultValue = "Dockerfile")
+  private String classifier;
+
+  @org.apache.maven.plugins.annotations.Component
+  private MavenProjectHelper projectHelper;
+
+  @Override
+  public void execute() throws MojoExecutionException {
+    try {
+      if (!outputDir.exists() && !outputDir.mkdirs()) {
+        LOGGER.warn("Cannot create output folder: " + outputDir);
+      }
+
+      Charset cs = (encoding == null || encoding.isBlank())
+          ? Charset.defaultCharset()
+          : Charset.forName(encoding);
+
+      File dockerfile = generateDockerfile(
+          outputDir, template, project, /* ownVersion: */ Literals.UNKNOWN_L, cs, FileUtils.getInstance());
+
+      // Attach the Dockerfile so the normal install/deploy phases publish it.
+      // Choose a sensible type; "txt" is common for plain files.
+      projectHelper.attachArtifact(project, "txt", classifier, dockerfile);
+
+      LOGGER.info("Attached Dockerfile as classifier '" + classifier + "'.");
+    } catch (final IOException e) {
+      throw new MojoExecutionException("Failed to generate Dockerfile", e);
+    }
+  }
+
+    /**
+     * Generates the dockerfile.
+     * @param outputDir the output path.
+     * @param template the Dockerfile.stg template.
+     * @param target the target project.
+     * @param ownVersion my own version.
+     * @param encoding the file encoding.
+     * @param fileUtils the {@link FileUtils} instance.
+     * @return the generated file.
+     * @throws IOException if the file cannot be written.
+     * @throws SecurityException if we're not allowed to write the file.
+     */
+    protected File generateDockerfile(
+        final File outputDir,
+        final File template,
+        final MavenProject target,
+        final String ownVersion,
+        final Charset encoding,
+        final FileUtils fileUtils)
+      throws IOException,
+             SecurityException
+    {
+        final File result;
+
+        final Map<String, Object> input = new HashMap<String, Object>();
+
+        input.put(Literals.T_U, target);
+        input.put(Literals.VERSION_L, ownVersion);
+
+        final DockerfileGenerator generator = new DockerfileGenerator(input, template);
+
+        final String contents = generator.generateDockerfile();
+
+        result = new File(outputDir.getAbsolutePath() + File.separator + "Dockerfile");
+
+        fileUtils.writeFile(result, contents, encoding);
+
+        return result;
+    }
+}
 /*
- * Importing some ACM-SL Java Commons classes.
- */
 import org.acmsl.commons.logging.UniqueLogFactory;
 import org.acmsl.commons.utils.io.FileUtils;
-
-/*
- * Importing some Maven classes.
- */
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.ArtifactUtils;
 import org.apache.maven.artifact.deployer.ArtifactDeploymentException;
@@ -47,7 +150,6 @@ import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.artifact.repository.ArtifactRepositoryFactory;
 import org.apache.maven.artifact.repository.layout.ArtifactRepositoryLayout;
 import org.apache.maven.execution.MavenSession;
-import org.apache.maven.plugin.deploy.AbstractDeployMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugin.logging.Log;
@@ -55,18 +157,9 @@ import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
+import org.apache.maven.plugins.deploy.AbstractDeployMojo;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.repository.RepositorySystem;
-
-/*
- * Importing NotNull annotations.
- */
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
-/*
- * Importing some JDK classes.
- */
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -77,18 +170,12 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
-/*
- * Importing checkthread.org annotations.
- */
-import org.checkthread.annotations.ThreadSafe;
-
 /**
  * Executes Dockerfile plugin.
  * @author <a href="mailto:chous@acm-sl.org">Jose San Leandro Armendariz</a>
  * Created: 2014/12/01
- */
+
 @SuppressWarnings("unused")
-@ThreadSafe
 @Mojo(name = Literals.DOCKERFILE_L,
       defaultPhase = LifecyclePhase.GENERATE_SOURCES,
       threadSafe = true,
@@ -98,18 +185,18 @@ public class DockerfileMojo
 {
     /**
      * The repo syntax pattern.
-     */
+     *
     private static final Pattern ALT_REPO_SYNTAX_PATTERN = Pattern.compile("(.+)::(.+)::(.+)");
 
     /**
      * The location of pom.properties within the jar file.
-     */
+     *
     protected static final String POM_PROPERTIES_LOCATION =
         "META-INF/maven/org.acmsl/dockerfile-maven-plugin/pom.properties";
 
     /**
      * The output directory.
-     */
+     *
     @Parameter(name = Literals.OUTPUT_DIR_CC,
                property = Literals.OUTPUT_DIR_CC,
                required = false,
@@ -119,14 +206,14 @@ public class DockerfileMojo
 
     /**
      * The output directory.
-     */
+     *
     @Parameter (name = Literals.TEMPLATE_L, property = Literals.TEMPLATE_L, required = true)
     @NotNull
     private File m__Template;
 
     /**
      * The file encoding.
-     */
+     *
     @Parameter(name = Literals.ENCODING_L,
                property = Literals.ENCODING_L,
                required = false,
@@ -136,7 +223,7 @@ public class DockerfileMojo
 
     /**
      * Whether to deploy the Dockerfile or not.
-     */
+     *
     @Parameter(name = Literals.DEPLOY_L,
                property = Literals.DEPLOY_L,
                required = false,
@@ -146,13 +233,13 @@ public class DockerfileMojo
 
     /**
      * Whether to deploy snapshots with a unique version or not.
-     */
+     *
     @Parameter(property = Literals.UNIQUE_VERSION_L, defaultValue = "true" )
     private boolean m__bUniqueVersion;
 
     /**
      * The Dockerfile classifier.
-     */
+     *
     @Parameter(name = Literals.CLASSIFIER_L,
                property = Literals.CLASSIFIER_L,
                required = false,
@@ -162,7 +249,7 @@ public class DockerfileMojo
 
     /**
      * The number of retries when deployment fails.
-     */
+     *
     @Parameter(name = Literals.DEPLOYMENT_RETRIES,
                property = Literals.DEPLOYMENT_RETRIES,
                required = false,
@@ -171,7 +258,7 @@ public class DockerfileMojo
     
     /**
      * Map that contains the layouts.
-     */
+     *
     @Component( role = ArtifactRepositoryLayout.class )
     @NotNull
     private Map<String, ArtifactRepositoryLayout> repositoryLayouts;
@@ -179,20 +266,20 @@ public class DockerfileMojo
     /**
      * The current build session instance. This is used for toolchain manager API calls.
      * @readonly
-     */
+     *
     @Parameter (defaultValue = "${session}", required = true, readonly = true)
     private MavenSession session;
 
     /**
      * Component used to create and deploy the Dockerfile artifact.
-     */
+     *
     @Component
     @NotNull
     protected RepositorySystem repositorySystem;
 
     /**
      * Component used to create a repository.
-     */
+     *
     @Component
     ArtifactRepositoryFactory repositoryFactory;
 
@@ -209,7 +296,7 @@ public class DockerfileMojo
      * <dt>url</dt>
      * <dd>The location of the repository</dd>
      * </dl>
-     */
+     *
     @Parameter(property = "altDeploymentRepository")
     @Nullable
     private String altDeploymentRepository;
@@ -217,7 +304,7 @@ public class DockerfileMojo
     /**
      * The alternative repository to use when the project has a snapshot version.
      * @since 2.8
-     */
+     *
     @Parameter(property = "altSnapshotDeploymentRepository")
     @Nullable
     private String altSnapshotDeploymentRepository;
@@ -225,7 +312,7 @@ public class DockerfileMojo
     /**
      * The alternative repository to use when the project has a final version.
      * @since 2.8
-     */
+     *
     @Parameter(property = "altReleaseDeploymentRepository")
     @Nullable
     private String altReleaseDeploymentRepository;
@@ -233,8 +320,8 @@ public class DockerfileMojo
     /**
      * Specifies the output directory.
      * @param outputDir such directory.
-     */
-    protected final void immutableSetOutputDir(@NotNull final File outputDir)
+     *
+    protected final void immutableSetOutputDir(final File outputDir)
     {
         m__OutputDir = outputDir;
     }
@@ -242,8 +329,8 @@ public class DockerfileMojo
     /**
      * Specifies the output directory.
      * @param outputDir such directory.
-     */
-    public void setOutputDir(@NotNull final File outputDir)
+     *
+    public void setOutputDir(final File outputDir)
     {
         immutableSetOutputDir(outputDir);
     }
@@ -251,7 +338,7 @@ public class DockerfileMojo
     /**
      * Returns the output directory.
      * @return such directory.
-     */
+     *
     @Nullable
     protected final File immutableGetOutputDir()
     {
@@ -261,7 +348,7 @@ public class DockerfileMojo
     /**
      * Returns the output directory.
      * @return such directory.
-     */
+     *
     @Nullable
     public File getOutputDir()
     {
@@ -284,8 +371,8 @@ public class DockerfileMojo
     /**
      * Specifies the template.
      * @param template such template.
-     */
-    protected final void immutableSetTemplate(@NotNull final File template)
+     *
+    protected final void immutableSetTemplate(final File template)
     {
         m__Template = template;
     }
@@ -293,8 +380,8 @@ public class DockerfileMojo
     /**
      * Specifies the template.
      * @param template such template.
-     */
-    public void setTemplate(@NotNull final File template)
+     *
+    public void setTemplate(final File template)
     {
         immutableSetTemplate(template);
     }
@@ -302,7 +389,7 @@ public class DockerfileMojo
     /**
      * Returns the template.
      * @return such template.
-     */
+     *
     @NotNull
     protected final File immutableGetTemplate()
     {
@@ -312,11 +399,11 @@ public class DockerfileMojo
     /**
      * Returns the template.
      * @return such template.
-     */
+     *
     @NotNull
     public File getTemplate()
     {
-        @NotNull final File result;
+        final File result;
 
         @Nullable final String aux = System.getProperty(Literals.DOCKERFILE_TEMPLATE);
 
@@ -335,8 +422,8 @@ public class DockerfileMojo
     /**
      * Specifies the encoding.
      * @param encoding the encoding.
-     */
-    protected final void immutableSetEncoding(@NotNull final String encoding)
+     *
+    protected final void immutableSetEncoding(final String encoding)
     {
         m__strEncoding = encoding;
     }
@@ -344,8 +431,8 @@ public class DockerfileMojo
     /**
      * Specifies the encoding.
      * @param encoding the encoding.
-     */
-    public void setEncoding(@NotNull final String encoding)
+     *
+    public void setEncoding(final String encoding)
     {
         immutableSetEncoding(encoding);
     }
@@ -353,7 +440,7 @@ public class DockerfileMojo
     /**
      * Retrieves the encoding.
      * @return such information.
-     */
+     *
     @Nullable
     protected final String immutableGetEncoding()
     {
@@ -363,7 +450,7 @@ public class DockerfileMojo
     /**
      * Retrieves the encoding.
      * @return such information.
-     */
+     *
     @Nullable
     public String getEncoding()
     {
@@ -380,7 +467,7 @@ public class DockerfileMojo
     /**
      * Specifies whether to deploy the Dockerfile or not.
      * @param deploy such condition.
-     */
+     *
     protected final void immutableSetDeploy(final boolean deploy)
     {
         m__bDeploy = deploy;
@@ -389,7 +476,7 @@ public class DockerfileMojo
     /**
      * Specifies whether to deploy the Dockerfile or not.
      * @param deploy such condition.
-     */
+     *
     public void setDeploy(final boolean deploy)
     {
         immutableSetDeploy(deploy);
@@ -398,7 +485,7 @@ public class DockerfileMojo
     /**
      * Retrieves whether to deploy the Dockerfile or not.
      * @return such information.
-     */
+     *
     protected final boolean immutableGetDeploy()
     {
         return m__bDeploy;
@@ -407,7 +494,7 @@ public class DockerfileMojo
     /**
      * Retrieves whether to deploy the Dockerfile or not.
      * @return such information.
-     */
+     *
     public boolean getDeploy()
     {
         @Nullable final boolean result;
@@ -429,7 +516,7 @@ public class DockerfileMojo
     /**
      * Specifies whether to use unique versions when deploying the Dockerfile or not.
      * @param uniqueVersion such condition.
-     */
+     *
     protected final void immutableSetUniqueVersion(final boolean uniqueVersion)
     {
         m__bUniqueVersion = uniqueVersion;
@@ -438,7 +525,7 @@ public class DockerfileMojo
     /**
      * Specifies whether to use unique versions when deploying the Dockerfile or not.
      * @param uniqueVersion such condition.
-     */
+     *
     public void setUniqueVersion(final boolean uniqueVersion)
     {
         immutableSetUniqueVersion(uniqueVersion);
@@ -447,7 +534,7 @@ public class DockerfileMojo
     /**
      * Retrieves whether to use unique versions when deploying the Dockerfile or not.
      * @return such information.
-     */
+     *
     protected final boolean immutableGetUniqueVersion()
     {
         return m__bUniqueVersion;
@@ -456,7 +543,7 @@ public class DockerfileMojo
     /**
      * Retrieves whether to use unique versions when deploying the Dockerfile or not.
      * @return such information.
-     */
+     *
     public boolean getUniqueVersion()
     {
         @Nullable final boolean result;
@@ -478,8 +565,8 @@ public class DockerfileMojo
     /**
      * Specifies the classifier.
      * @param classifier the classifier.
-     */
-    protected final void immutableSetClassifier(@NotNull final String classifier)
+     *
+    protected final void immutableSetClassifier(final String classifier)
     {
         m__strClassifier = classifier;
     }
@@ -487,8 +574,8 @@ public class DockerfileMojo
     /**
      * Specifies the classifier.
      * @param classifier the classifier.
-     */
-    public void setClassifier(@NotNull final String classifier)
+     *
+    public void setClassifier(final String classifier)
     {
         immutableSetClassifier(classifier);
     }
@@ -496,7 +583,7 @@ public class DockerfileMojo
     /**
      * Retrieves the classifier.
      * @return such information.
-     */
+     *
     @Nullable
     protected final String immutableGetClassifier()
     {
@@ -506,7 +593,7 @@ public class DockerfileMojo
     /**
      * Retrieves the classifier.
      * @return such information.
-     */
+     *
     @Nullable
     public String getClassifier()
     {
@@ -523,7 +610,7 @@ public class DockerfileMojo
     /**
      * Specifies how many times a failed deployment will be retried before giving up.
      * @param retryFailedDeploymentCount such count.
-     */
+     *
     protected final void immutableSetDeploymentRetries(final int retryFailedDeploymentCount)
     {
         m__iRetryFailedDeploymentCount = retryFailedDeploymentCount;
@@ -532,7 +619,7 @@ public class DockerfileMojo
     /**
      * Specifies how many times a failed deployment will be retried before giving up.
      * @param retryFailedDeploymentCount such count.
-     */
+     *
     public void setDeploymentRetries(final int retryFailedDeploymentCount)
     {
         immutableSetDeploymentRetries(retryFailedDeploymentCount);
@@ -541,7 +628,7 @@ public class DockerfileMojo
     /**
      * Retrieves how many times a failed deployment will be retried before giving up.
      * @return such information.
-     */
+     *
     protected final int immutableGetDeploymentRetries()
     {
         return m__iRetryFailedDeploymentCount;
@@ -550,7 +637,7 @@ public class DockerfileMojo
     /**
      * Retrieves how many times a failed deployment will be retried before giving up.
      * @return such information.
-     */
+     *
     public int getDeploymentRetries()
     {
         @Nullable final int result;
@@ -573,9 +660,9 @@ public class DockerfileMojo
      * Retrieves the layout.
      * @param id the id.
      * @return the layout.
-     */
+     *
     @NotNull
-    public ArtifactRepositoryLayout getLayout(@NotNull final String id)
+    public ArtifactRepositoryLayout getLayout(final String id)
         throws MojoExecutionException
     {
         @Nullable final ArtifactRepositoryLayout result = repositoryLayouts.get(id);
@@ -591,20 +678,20 @@ public class DockerfileMojo
     /**
      * Executes Dockerfile Maven plugin.
      * @throws org.apache.maven.plugin.MojoExecutionException if the process fails.
-     */
+     *
     @Override
     public void execute()
         throws MojoExecutionException
     {
-        execute(getLog());
+        execute(LOGGER);
     }
 
     /**
      * Executes Dockerfile Maven plugin.
      * @param log the Maven log.
      * @throws MojoExecutionException if the process fails.
-     */
-    protected void execute(@NotNull final Log log)
+     *
+    protected void execute(final Log log)
         throws MojoExecutionException
     {
         execute(
@@ -624,11 +711,11 @@ public class DockerfileMojo
      * Retrieves the version of Dockerfile Maven Plugin currently running.
      * @param properties the pom.properties information.
      * @return the version entry.
-     */
+     *
     @NotNull
     protected String retrieveOwnVersion(@Nullable final Properties properties)
     {
-        @NotNull final String result;
+        final String result;
 
         if (   (properties != null)
             && (properties.containsKey(Literals.VERSION_L)))
@@ -646,7 +733,7 @@ public class DockerfileMojo
     /**
      * Retrieves the target project.
      * @return such version.
-     */
+     *
     @NotNull
     protected MavenProject retrieveTargetProject()
     {
@@ -666,17 +753,17 @@ public class DockerfileMojo
      * @param classifier the Dockerfile classifier.
      * @param retryFailedDeploymentCount how many times a failed deployment will be retried before giving up.
      * @throws MojoExecutionException if the process fails.
-     */
+     *
     protected void execute(
-        @NotNull final Log log,
-        @NotNull final String ownVersion,
-        @NotNull final MavenProject targetProject,
-        @NotNull final File outputDir,
-        @NotNull final File template,
-        @NotNull final String encoding,
+        final Log log,
+        final String ownVersion,
+        final MavenProject targetProject,
+        final File outputDir,
+        final File template,
+        final String encoding,
         final boolean deploy,
         final boolean uniqueVersions,
-        @NotNull final String classifier,
+        final String classifier,
         final int retryFailedDeploymentCount)
       throws MojoExecutionException
     {
@@ -718,7 +805,7 @@ public class DockerfileMojo
             log.error(Literals.TEMPLATE_L + " is null");
         }
 
-        @NotNull final Charset actualEncoding;
+        final Charset actualEncoding;
 
         if (encoding == null)
         {
@@ -754,11 +841,11 @@ public class DockerfileMojo
                         actualEncoding,
                         FileUtils.getInstance());
             }
-            catch (@NotNull final SecurityException securityException)
+            catch (final SecurityException securityException)
             {
                 log.error("Not allowed to write output file in " + outputDir.getAbsolutePath(), securityException);
             }
-            catch (@NotNull final IOException ioException)
+            catch (final IOException ioException)
             {
                 log.error("Cannot write output file in " + outputDir.getAbsolutePath(), ioException);
             }
@@ -767,7 +854,7 @@ public class DockerfileMojo
             {
                 try
                 {
-                    @NotNull final Artifact artifact =
+                    final Artifact artifact =
                         repositorySystem.createArtifactWithClassifier(
                             targetProject.getGroupId(),
                             targetProject.getArtifactId(),
@@ -775,14 +862,14 @@ public class DockerfileMojo
                             "",
                             classifier);
 
-                    @NotNull final ArtifactRepository repo =
+                    final ArtifactRepository repo =
                         getDeploymentRepository(
                             targetProject,
                             altDeploymentRepository,
                             altReleaseDeploymentRepository,
                             altSnapshotDeploymentRepository);
 
-                    @NotNull final ArtifactRepository deploymentRepository =
+                    final ArtifactRepository deploymentRepository =
                         repositoryFactory.createDeploymentArtifactRepository(
                             repo.getId(), repo.getUrl(), getLayout("default"), uniqueVersions);
 
@@ -793,11 +880,11 @@ public class DockerfileMojo
                         getLocalRepository(),
                         retryFailedDeploymentCount);
                 }
-                catch (@NotNull final ArtifactDeploymentException e)
+                catch (final ArtifactDeploymentException e)
                 {
                     throw new MojoExecutionException("Error deploying Dockerfile", e);
                 }
-                catch (@NotNull final MojoFailureException e)
+                catch (final MojoFailureException e)
                 {
                     throw new MojoExecutionException("Error deploying Dockerfile", e);
                 }
@@ -815,9 +902,9 @@ public class DockerfileMojo
      * Retrieves the pom.properties bundled within the Dockerfile Maven Plugin jar.
      * @param log the Maven log.
      * @return such information.
-     */
+     *
     @Nullable
-    protected Properties retrievePomProperties(@NotNull final Log log)
+    protected Properties retrievePomProperties(final Log log)
     {
         @Nullable Properties result = null;
 
@@ -833,7 +920,7 @@ public class DockerfileMojo
                 result.load(pomProperties);
             }
         }
-        catch (@NotNull final IOException ioException)
+        catch (final IOException ioException)
         {
             log.warn(
                 Literals.CANNOT_READ_MY_OWN_POM + POM_PROPERTIES_LOCATION,
@@ -846,8 +933,8 @@ public class DockerfileMojo
     /**
      * Initializes the logging.
      * @param commonsLoggingLog such log.
-     */
-    protected void initLogging(@NotNull final org.apache.commons.logging.Log commonsLoggingLog)
+     *
+    protected void initLogging(final org.apache.commons.logging.Log commonsLoggingLog)
     {
         UniqueLogFactory.initializeInstance(commonsLoggingLog);
     }
@@ -863,27 +950,27 @@ public class DockerfileMojo
      * @return the generated file.
      * @throws IOException if the file cannot be written.
      * @throws SecurityException if we're not allowed to write the file.
-     */
+     *
     protected File generateDockerfile(
-        @NotNull final File outputDir,
-        @NotNull final File template,
-        @NotNull final MavenProject target,
-        @NotNull final String ownVersion,
-        @NotNull final Charset encoding,
-        @NotNull final FileUtils fileUtils)
+        final File outputDir,
+        final File template,
+        final MavenProject target,
+        final String ownVersion,
+        final Charset encoding,
+        final FileUtils fileUtils)
       throws IOException,
              SecurityException
     {
-        @NotNull final File result;
+        final File result;
 
-        @NotNull final Map<String, Object> input = new HashMap<String, Object>();
+        final Map<String, Object> input = new HashMap<String, Object>();
 
         input.put(Literals.T_U, target);
         input.put(Literals.VERSION_L, ownVersion);
 
-        @NotNull final DockerfileGenerator generator = new DockerfileGenerator(input, template);
+        final DockerfileGenerator generator = new DockerfileGenerator(input, template);
 
-        @NotNull final String contents = generator.generateDockerfile();
+        final String contents = generator.generateDockerfile();
 
         result = new File(outputDir.getAbsolutePath() + File.separator + "Dockerfile");
 
@@ -899,9 +986,9 @@ public class DockerfileMojo
      * @param altReleaseDeploymentRepository the release repository.
      * @param altSnapshotDeploymentRepository the snapshot repository.
      * @return the repository.
-     */
+     *
     protected ArtifactRepository getDeploymentRepository(
-        @NotNull final MavenProject project,
+        final MavenProject project,
         @Nullable final String altDeploymentRepository,
         @Nullable final String altReleaseDeploymentRepository,
         @Nullable final String altSnapshotDeploymentRepository)
@@ -927,9 +1014,9 @@ public class DockerfileMojo
 
         if (altDeploymentRepo != null)
         {
-            getLog().info("Using alternate deployment repository " + altDeploymentRepo);
+            LOGGER.info("Using alternate deployment repository " + altDeploymentRepo);
 
-            @NotNull final Matcher matcher = ALT_REPO_SYNTAX_PATTERN.matcher(altDeploymentRepo);
+            final Matcher matcher = ALT_REPO_SYNTAX_PATTERN.matcher(altDeploymentRepo);
 
             if (!matcher.matches())
             {
@@ -940,11 +1027,11 @@ public class DockerfileMojo
                                         "Invalid syntax for alternative repository. Use \"id::layout::url\".");
             } else
             {
-                @NotNull final String id = matcher.group(1).trim();
-                @NotNull final String layout = matcher.group(2).trim();
-                @NotNull final String url = matcher.group(3).trim();
+                final String id = matcher.group(1).trim();
+                final String layout = matcher.group(2).trim();
+                final String url = matcher.group(3).trim();
 
-                @NotNull final ArtifactRepositoryLayout repoLayout = getLayout(layout);
+                final ArtifactRepositoryLayout repoLayout = getLayout(layout);
 
                 result = repositoryFactory.createDeploymentArtifactRepository(id, url, repoLayout, true);
             }
@@ -957,7 +1044,7 @@ public class DockerfileMojo
 
         if (result == null)
         {
-            @NotNull final String msg =
+            final String msg =
                 "Deployment failed: repository element was not specified in the POM inside"
                     + " distributionManagement element or in -DaltDeploymentRepository=id::layout::url parameter";
 
@@ -967,3 +1054,4 @@ public class DockerfileMojo
         return result;
     }
 }
+*/

@@ -52,12 +52,6 @@ import org.acmsl.commons.logging.UniqueLogFactory;
 import org.apache.commons.logging.Log;
 
 /*
- * Importing NotNull annotations.
- */
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
-/*
  * Importing some JDK classes.
  */
 import java.io.File;
@@ -67,23 +61,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/*
- * Importing checkthread.org annotations.
- */
-import org.checkthread.annotations.ThreadSafe;
-
 /**
  * Generates Dockerfile files using StringTemplate.
  * @author <a href="mailto:chous@acm-sl.org">Jose San Leandro Armendariz</a>
  * Created: 2014/12/03
  */
-@ThreadSafe
 public class DockerfileGenerator
 {
     /**
      * The default StringTemplate error listener.
      */
-    @NotNull
     protected static final STErrorListener ST_ERROR_LISTENER =
         new STErrorListener()
         {
@@ -91,9 +78,9 @@ public class DockerfileGenerator
              * {@inheritDoc}
              */
             @Override
-            public void compileTimeError(@NotNull final STMessage stMessage)
+            public void compileTimeError(final STMessage stMessage)
             {
-                @Nullable final Log log = UniqueLogFactory.getLog(DockerfileGenerator.class);
+                final Log log = UniqueLogFactory.getLog(DockerfileGenerator.class);
 
                 if (log != null)
                 {
@@ -105,9 +92,9 @@ public class DockerfileGenerator
              * {@inheritDoc}
              */
             @Override
-            public void runTimeError(@NotNull final STMessage stMessage)
+            public void runTimeError(final STMessage stMessage)
             {
-                @Nullable final Log log = UniqueLogFactory.getLog(DockerfileGenerator.class);
+                final Log log = UniqueLogFactory.getLog(DockerfileGenerator.class);
 
                 if (log != null)
                 {
@@ -119,9 +106,9 @@ public class DockerfileGenerator
              * {@inheritDoc}
              */
             @Override
-            public void IOError(@NotNull final STMessage stMessage)
+            public void IOError(final STMessage stMessage)
             {
-                @Nullable final Log log = UniqueLogFactory.getLog(DockerfileGenerator.class);
+                final Log log = UniqueLogFactory.getLog(DockerfileGenerator.class);
 
                 if (log != null)
                 {
@@ -133,9 +120,9 @@ public class DockerfileGenerator
              * {@inheritDoc}
              */
             @Override
-            public void internalError(@NotNull final STMessage stMessage)
+            public void internalError(final STMessage stMessage)
             {
-                @Nullable final Log log = UniqueLogFactory.getLog(DockerfileGenerator.class);
+                final Log log = UniqueLogFactory.getLog(DockerfileGenerator.class);
 
                 if (log != null)
                 {
@@ -147,13 +134,11 @@ public class DockerfileGenerator
     /**
      * The input parameters to the template.
      */
-    @NotNull
     private final Map<String, ?> m__mInput;
 
     /**
      * The template file.
      */
-    @NotNull
     private final File m__Template;
 
     /**
@@ -162,7 +147,7 @@ public class DockerfileGenerator
      * @param template the template.
      */
     public DockerfileGenerator(
-        @NotNull final Map<String, ?> input, @NotNull final File template)
+        final Map<String, ?> input, final File template)
     {
         this.m__mInput = input;
         this.m__Template = template;
@@ -182,10 +167,9 @@ public class DockerfileGenerator
      * @return such parameters.
      */
     @SuppressWarnings("unused")
-    @NotNull
     public Map<String, ?> getInput()
     {
-        @NotNull final Map<String, ?> result =
+        final Map<String, ?> result =
             new HashMap<String, Object>(this.m__mInput);
 
         return result;
@@ -195,7 +179,6 @@ public class DockerfileGenerator
      * Retrieves the template.
      * @return such file.
      */
-    @NotNull
     public File getTemplate()
     {
         return this.m__Template;
@@ -205,7 +188,6 @@ public class DockerfileGenerator
      * Generates a new Dockerfile using given information.
      * @return the Dockerfile content.
      */
-    @NotNull
     public String generateDockerfile()
     {
         return generateDockerfile(immutableGetInput(), getTemplate());
@@ -217,18 +199,17 @@ public class DockerfileGenerator
      * @param template the template.
      * @return the Dockerfile content.
      */
-    @NotNull
     protected String generateDockerfile(
-        @NotNull final Map<String, ?> input, @NotNull final File template)
+        final Map<String, ?> input, final File template)
     {
-        @NotNull final STGroup templateGroup =
+        final STGroup templateGroup =
             retrieveGroup(
                 template,
                 Arrays.asList(Literals.ORG_ACMSL_DOCKERFILE),
                 ST_ERROR_LISTENER,
                 Charset.defaultCharset());
 
-        @NotNull final ST st = templateGroup.getInstanceOf(Literals.SOURCE_L);
+        final ST st = templateGroup.getInstanceOf(Literals.SOURCE_L);
 
         st.add(Literals.C_U, input);
 
@@ -243,12 +224,11 @@ public class DockerfileGenerator
      * @param charset the charset.
      * @return such instance.
      */
-    @NotNull
     protected STGroup retrieveGroup(
-        @NotNull final File template,
-        @NotNull final List<String> lookupPaths,
-        @NotNull final STErrorListener errorListener,
-        @NotNull final Charset charset)
+        final File template,
+        final List<String> lookupPaths,
+        final STErrorListener errorListener,
+        final Charset charset)
     {
         return
             configureGroupFile(
@@ -266,12 +246,11 @@ public class DockerfileGenerator
      * @param charset the charset.
      * @return such instance.
      */
-    @NotNull
     protected STGroup retrieveGroup(
-        @NotNull final String path,
-        @NotNull final List<String> lookupPaths,
-        @NotNull final STErrorListener errorListener,
-        @NotNull final Charset charset)
+        final String path,
+        final List<String> lookupPaths,
+        final STErrorListener errorListener,
+        final Charset charset)
     {
         return
             configureGroupFile(
@@ -289,16 +268,15 @@ public class DockerfileGenerator
      * @param charset the charset.
      * @return such instance.
      */
-    @NotNull
     protected STGroup configureGroupFile(
-        @NotNull final STGroupFile groupFile,
-        @NotNull final List<String> lookupPaths,
-        @NotNull final STErrorListener errorListener,
-        @NotNull final Charset charset)
+        final STGroupFile groupFile,
+        final List<String> lookupPaths,
+        final STErrorListener errorListener,
+        final Charset charset)
     {
-        @NotNull final STGroupFile result = groupFile;
+        final STGroupFile result = groupFile;
 
-        for (@Nullable final String lookupPath : lookupPaths)
+        for (final String lookupPath : lookupPaths)
         {
             if (lookupPath != null)
             {
